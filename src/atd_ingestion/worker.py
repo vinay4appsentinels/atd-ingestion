@@ -5,6 +5,7 @@ Worker module for processing messages and executing as-cli commands
 import subprocess
 import logging
 import time
+import queue
 from typing import Dict, Any, Optional
 from dataclasses import dataclass
 
@@ -174,8 +175,8 @@ class Worker:
         
         while self.running and not stop_event.is_set():
             try:
-                # Get message from queue with timeout
-                message = queue.get(timeout=1)
+                # Get message from queue with timeout (20 seconds)
+                message = queue.get(timeout=20)
                 
                 if message is None:  # Poison pill to stop thread
                     break
@@ -199,6 +200,10 @@ class Worker:
                         f"- Error: {result.error}"
                     )
                 
+            except queue.Empty:
+                # This is normal - no messages available
+                self.logger.info(f"Worker {self.worker_id}: Nothing to process, continuing to poll for jobs")
+                continue
             except Exception as e:
                 if self.running:
                     self.logger.error(f"Worker {self.worker_id} error: {str(e)}")
