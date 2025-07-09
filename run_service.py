@@ -46,6 +46,7 @@ def main():
     try:
         # Parse command line arguments
         import argparse
+        import os
         parser = argparse.ArgumentParser(description="ATD Ingestion Service")
         parser.add_argument(
             '--config',
@@ -61,8 +62,11 @@ def main():
         
         args = parser.parse_args()
         
+        # Check for topic override from environment variable
+        topic_override = args.topic or os.getenv('KAFKA_TOPIC')
+        
         # Create and start service
-        service = ATDIngestionService(args.config, args.topic)
+        service = ATDIngestionService(args.config, topic_override)
         
         # Remove the duplicate signal handlers from service
         signal.signal(signal.SIGINT, signal_handler)

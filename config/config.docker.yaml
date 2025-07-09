@@ -2,20 +2,17 @@
 
 # Kafka Configuration
 kafka:
-  topic: oat_bus
+  topic: atd_test_topic  # Default topic for Docker testing
   bootstrap_servers:
-    - kafka:29092  # Using internal Docker network
-  group_id: atd_ingestion
-  auto_offset_reset: latest
+    - localhost:9092  # Using host networking to access existing Kafka
+  group_id: atd_ingestion_test
+  auto_offset_reset: earliest  # Read from beginning for testing
   enable_auto_commit: true
-  # Consumer timeout for message processing (20 minutes = 1200000 ms)
-  max_poll_interval_ms: 1200000
-  # Session timeout (must be less than max_poll_interval_ms)
-  session_timeout_ms: 600000
+  poll_timeout_ms: 20000  # Poll timeout in milliseconds (20 seconds)
 
 # ClickHouse Configuration
 clickhouse:
-  host: host.docker.internal  # To connect to ClickHouse on host
+  host: localhost  # Using host networking to access existing ClickHouse
   port: 18123
   database: default
   # Optional: Add credentials if required
@@ -34,7 +31,7 @@ thread_pool_size: 4  # Number of concurrent threads for processing
 
 # Logging Configuration
 log_level: INFO
-log_file: /app/logs/atd-ingestion.log
+log_file: null  # Use console logging for Docker
 
 # Table Management
 auto_create_tables: true  # Pass --create-table flag to as-cli

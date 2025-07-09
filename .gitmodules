@@ -1,0 +1,3 @@
+[submodule "as-cli-ingest"]
+	path = as-cli-ingest
+	url = git@github.com:vinay4appsentinels/as-cli-ingest.git

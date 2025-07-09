@@ -28,23 +28,16 @@ RUN pip install \
     pyarrow>=12.0.0 \
     python-dateutil
 
-# Install as-cli-ingest plugin
-# Option 1: From PyPI (if published)
-# RUN pip install as-cli-ingest
-
-# Option 2: From local directory (for development)
-# COPY ./as-cli-ingest /tmp/as-cli-ingest
-# RUN pip install /tmp/as-cli-ingest && rm -rf /tmp/as-cli-ingest
-
-# Option 3: From GitHub
-RUN pip install git+https://github.com/appsentinels/as-cli-ingest.git
+# Install as-cli-ingest plugin from local submodule
+COPY ./as-cli-ingest /tmp/as-cli-ingest
+RUN pip install /tmp/as-cli-ingest && rm -rf /tmp/as-cli-ingest
 
 # Verify as-cli installation
 RUN as-cli --version
 
 # Create non-root user
 RUN useradd -m -u 1000 atduser && \
-    mkdir -p /app/logs /app/config && \
+    mkdir -p /app/config && \
     chown -R atduser:atduser /app
 
 # Copy application files
@@ -54,19 +47,23 @@ COPY --chown=atduser:atduser src/ ./src/
 COPY --chown=atduser:atduser config/ ./config/
 COPY --chown=atduser:atduser test_producer.py .
 
+# Install the atd-ingestion package in development mode
+RUN pip install -e .
+
 # Switch to non-root user
 USER atduser
 
 # Create volume mount points
-VOLUME ["/app/logs", "/app/config", "/data"]
+VOLUME ["/app/config", "/data"]
 
 # Default environment variables
 ENV PYTHONUNBUFFERED=1
 ENV LOG_LEVEL=INFO
+ENV KAFKA_TOPIC=atd_test_topic
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD python -c "import socket; s = socket.socket(); s.connect(('localhost', 9092)); s.close()" || exit 1
 
 # Run the service
-CMD ["python", "main.py", "--config", "/app/config/config.yaml"]
+CMD ["python", "main.py", "--config", "/app/config/config.docker.yaml"]

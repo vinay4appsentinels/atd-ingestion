@@ -21,10 +21,6 @@ def setup_logging(config: Config) -> logging.Logger:
     # Remove existing handlers to avoid duplicates
     logger.handlers.clear()
     
-    # Create log directory if it doesn't exist
-    log_file = Path(config.log_file)
-    log_file.parent.mkdir(parents=True, exist_ok=True)
-    
     # Console handler with color support
     console_handler = logging.StreamHandler()
     console_handler.setLevel(log_level)
@@ -32,22 +28,24 @@ def setup_logging(config: Config) -> logging.Logger:
         '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
     console_handler.setFormatter(console_formatter)
-    
-    # File handler with rotation
-    file_handler = logging.handlers.RotatingFileHandler(
-        config.log_file,
-        maxBytes=50*1024*1024,  # 50MB
-        backupCount=5
-    )
-    file_handler.setLevel(log_level)
-    file_formatter = logging.Formatter(
-        '%(asctime)s - %(name)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s'
-    )
-    file_handler.setFormatter(file_formatter)
-    
-    # Add handlers
     logger.addHandler(console_handler)
-    logger.addHandler(file_handler)
+    
+    # File handler with rotation (only if log_file is specified)
+    if config.log_file:
+        log_file = Path(config.log_file)
+        log_file.parent.mkdir(parents=True, exist_ok=True)
+        
+        file_handler = logging.handlers.RotatingFileHandler(
+            config.log_file,
+            maxBytes=50*1024*1024,  # 50MB
+            backupCount=5
+        )
+        file_handler.setLevel(log_level)
+        file_formatter = logging.Formatter(
+            '%(asctime)s - %(name)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s'
+        )
+        file_handler.setFormatter(file_formatter)
+        logger.addHandler(file_handler)
     
     # Force flush to ensure log level message appears
     for handler in logger.handlers:

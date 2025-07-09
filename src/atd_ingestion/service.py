@@ -259,6 +259,7 @@ class ATDIngestionService:
 def main():
     """Main entry point"""
     import argparse
+    import os
     
     parser = argparse.ArgumentParser(description="ATD Ingestion Service")
     parser.add_argument(
@@ -275,8 +276,11 @@ def main():
     
     args = parser.parse_args()
     
+    # Check for topic override from environment variable
+    topic_override = args.topic or os.getenv('KAFKA_TOPIC')
+    
     try:
-        service = ATDIngestionService(args.config, args.topic)
+        service = ATDIngestionService(args.config, topic_override)
         service.start()
     except KeyboardInterrupt:
         print("\nShutdown requested via keyboard interrupt")

@@ -3,7 +3,7 @@
 Main entry point for ATD Ingestion Service
 """
 
-from src.atd_ingestion.service import main
+from atd_ingestion.service import main
 
 if __name__ == "__main__":
     main()

@@ -1,3 +1,5 @@
 kafka-python==2.0.2
 PyYAML==6.0.1
 clickhouse-driver==0.2.6
+keyring
+python-dotenv
