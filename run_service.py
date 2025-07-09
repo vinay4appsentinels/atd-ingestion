@@ -44,9 +44,25 @@ def main():
     signal.signal(signal.SIGTERM, signal_handler)
     
     try:
+        # Parse command line arguments
+        import argparse
+        parser = argparse.ArgumentParser(description="ATD Ingestion Service")
+        parser.add_argument(
+            '--config',
+            type=str,
+            default='config/config.yaml',
+            help='Path to configuration file'
+        )
+        parser.add_argument(
+            '--topic',
+            type=str,
+            help='Kafka topic to consume from (overrides config file)'
+        )
+        
+        args = parser.parse_args()
+        
         # Create and start service
-        config_path = sys.argv[1] if len(sys.argv) > 1 else 'config/config.yaml'
-        service = ATDIngestionService(config_path)
+        service = ATDIngestionService(args.config, args.topic)
         
         # Remove the duplicate signal handlers from service
         signal.signal(signal.SIGINT, signal_handler)

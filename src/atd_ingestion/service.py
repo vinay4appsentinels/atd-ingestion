@@ -20,9 +20,13 @@ from .logging_setup import setup_logging
 class ATDIngestionService:
     """Main service class that orchestrates Kafka consumption and message processing"""
     
-    def __init__(self, config_path: str):
+    def __init__(self, config_path: str, topic_override: Optional[str] = None):
         # Load configuration
         self.config = Config.from_yaml(config_path)
+        
+        # Override topic if provided
+        if topic_override:
+            self.config.kafka.topic = topic_override
         
         # Setup logging
         self.logger = setup_logging(self.config)
@@ -57,6 +61,9 @@ class ATDIngestionService:
         # Print startup banner
         self.logger.info("="*70)
         self.logger.info("ATD INGESTION SERVICE STARTING")
+        self.logger.info(f"LOG LEVEL: {self.config.log_level}")
+        self.logger.debug(f"Log file: {self.config.log_file}")        
+        self.logger.info(f"Thread Pool Size: {self.config.thread_pool_size}")
         self.logger.info("="*70)
         
         # Print detailed configuration
@@ -71,6 +78,7 @@ class ATDIngestionService:
         self.logger.info(f"  Consumer Group: {config_dict['kafka']['group_id']}")
         self.logger.info(f"  Auto Offset Reset: {config_dict['kafka']['auto_offset_reset']}")
         self.logger.info(f"  Auto Commit: {config_dict['kafka']['enable_auto_commit']}")
+        self.logger.info(f"  Poll Timeout: {config_dict['kafka']['poll_timeout_ms']}ms ({config_dict['kafka']['poll_timeout_ms']/1000:.1f} seconds)")
         if 'max_poll_interval_ms' in config_dict['kafka']:
             self.logger.info(f"  Max Poll Interval: {config_dict['kafka']['max_poll_interval_ms']}ms ({config_dict['kafka']['max_poll_interval_ms']/60000:.1f} minutes)")
         if 'session_timeout_ms' in config_dict['kafka']:
@@ -97,7 +105,7 @@ class ATDIngestionService:
         # Service Configuration
         self.logger.info("\nSERVICE CONFIGURATION:")
         self.logger.info(f"  Thread Pool Size: {config_dict['thread_pool_size']}")
-        self.logger.info(f"  Log Level: {config_dict['log_level']}")
+        self.logger.info(f"  Log Level: {config_dict['log_level']} (Active: {logging.getLevelName(self.logger.level)})")
         self.logger.info(f"  Log File: {config_dict['log_file']}")
         self.logger.info(f"  Retry Enabled: {config_dict['service']['retry']['enabled']}")
         if config_dict['service']['retry']['enabled']:
@@ -146,21 +154,60 @@ class ATDIngestionService:
         """Main service loop that consumes from Kafka and queues messages"""
         self.logger.info("Entering main processing loop")
         
+        # Track time for periodic logging
+        last_poll_log_time = time.time()
+        poll_log_interval = 20  # Log every 20 seconds when no messages
+        polls_without_messages = 0
+        
         while self.running:
             try:
                 # Poll for messages
-                messages = self.kafka_consumer.poll_messages(timeout_ms=1000)
+                poll_start = time.time()
+                self.logger.info(f"Main service: Starting poll #{polls_without_messages + 1}")
+                messages = self.kafka_consumer.poll_messages(timeout_ms=self.config.kafka.poll_timeout_ms)
+                poll_duration = time.time() - poll_start
+                self.logger.info(f"Main service: Poll returned after {poll_duration:.3f}s with: {messages}")
                 
-                for topic_partition, records in messages.items():
-                    for record in records:
-                        self.stats['messages_received'] += 1
+                # Check if we actually got any records
+                has_messages = False
+                if messages:
+                    for records in messages.values():
+                        if records:
+                            has_messages = True
+                            break
+                
+                if has_messages:
+                    # Process messages
+                    for topic_partition, records in messages.items():
+                        for record in records:
+                            self.stats['messages_received'] += 1
+                            self.logger.info(
+                                f"Received message: offset={record.offset}, "
+                                f"partition={record.partition}"
+                            )
+                            
+                            # Add to processing queue
+                            self.processing_queue.put(record)
+                    
+                    # Reset poll log timer when messages are received
+                    last_poll_log_time = time.time()
+                    polls_without_messages = 0
+                else:
+                    # No messages received
+                    polls_without_messages += 1
+                    current_time = time.time()
+                    
+                    # Debug: log status every 3 polls (approximately every minute with 20s polls)
+                    if polls_without_messages % 3 == 0:
+                        self.logger.info(f"DEBUG: No messages for {polls_without_messages} polls (poll took {poll_duration:.3f}s)")
+                    
+                    # Log every 5 polls (approximately 100 seconds with 20s polls)
+                    if polls_without_messages == 5:
                         self.logger.info(
-                            f"Received message: offset={record.offset}, "
-                            f"partition={record.partition}"
+                            f"Main service: No messages from Kafka topic '{self.config.kafka.topic}', "
+                            f"continuing to poll... (Queue size: {self.processing_queue.qsize()})"
                         )
-                        
-                        # Add to processing queue
-                        self.processing_queue.put(record)
+                        polls_without_messages = 0
                 
                 # Log statistics periodically
                 if self.stats['messages_received'] % 100 == 0 and self.stats['messages_received'] > 0:
@@ -220,11 +267,16 @@ def main():
         default='config/config.yaml',
         help='Path to configuration file'
     )
+    parser.add_argument(
+        '--topic',
+        type=str,
+        help='Kafka topic to consume from (overrides config file)'
+    )
     
     args = parser.parse_args()
     
     try:
-        service = ATDIngestionService(args.config)
+        service = ATDIngestionService(args.config, args.topic)
         service.start()
     except KeyboardInterrupt:
         print("\nShutdown requested via keyboard interrupt")

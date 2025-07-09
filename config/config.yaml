@@ -2,16 +2,13 @@
 
 # Kafka Configuration
 kafka:
-  topic: oat_bus
+  topic: atd_test_topic  # Test topic for development
   bootstrap_servers:
     - localhost:9092
-  group_id: atd_ingestion
-  auto_offset_reset: latest
+  group_id: atd_ingestion_test
+  auto_offset_reset: earliest  # Read from beginning for testing
   enable_auto_commit: true
-  # Consumer timeout for message processing (20 minutes = 1200000 ms)
-  max_poll_interval_ms: 1200000
-  # Session timeout (must be less than max_poll_interval_ms)
-  session_timeout_ms: 600000
+  poll_timeout_ms: 20000  # Poll timeout in milliseconds (20 seconds)
 
 # ClickHouse Configuration
 clickhouse:

@@ -5,7 +5,7 @@ Worker module for processing messages and executing as-cli commands
 import subprocess
 import logging
 import time
-import queue
+from queue import Empty
 from typing import Dict, Any, Optional
 from dataclasses import dataclass
 
@@ -200,7 +200,7 @@ class Worker:
                         f"- Error: {result.error}"
                     )
                 
-            except queue.Empty:
+            except Empty:
                 # This is normal - no messages available
                 self.logger.info(f"Worker {self.worker_id}: Nothing to process, continuing to poll for jobs")
                 continue

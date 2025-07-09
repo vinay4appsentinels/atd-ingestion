@@ -41,6 +41,8 @@ def send_test_messages(bootstrap_servers, topic, num_messages=5):
     producer.flush()
     producer.close()
     print("All messages sent successfully!")
+    print(f"\nTo test the service with this topic, run:")
+    print(f"  python3 run_service.py --topic {topic}")
 
 
 if __name__ == "__main__":
@@ -54,7 +56,7 @@ if __name__ == "__main__":
     parser.add_argument(
         '--topic',
         type=str,
-        default='atd-topic',
+        default='atd_test_topic',
         help='Kafka topic name'
     )
     parser.add_argument(

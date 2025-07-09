@@ -13,7 +13,10 @@ from .config import Config
 def setup_logging(config: Config) -> logging.Logger:
     """Setup logging configuration"""
     logger = logging.getLogger('atd-ingestion')
-    logger.setLevel(config.log_level)
+    
+    # Convert string log level to logging constant
+    log_level = getattr(logging, config.log_level.upper(), logging.INFO)
+    logger.setLevel(log_level)
     
     # Remove existing handlers to avoid duplicates
     logger.handlers.clear()
@@ -24,7 +27,7 @@ def setup_logging(config: Config) -> logging.Logger:
     
     # Console handler with color support
     console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.INFO)
+    console_handler.setLevel(log_level)
     console_formatter = ColoredFormatter(
         '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
@@ -36,7 +39,7 @@ def setup_logging(config: Config) -> logging.Logger:
         maxBytes=50*1024*1024,  # 50MB
         backupCount=5
     )
-    file_handler.setLevel(logging.DEBUG)
+    file_handler.setLevel(log_level)
     file_formatter = logging.Formatter(
         '%(asctime)s - %(name)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s'
     )
@@ -45,6 +48,13 @@ def setup_logging(config: Config) -> logging.Logger:
     # Add handlers
     logger.addHandler(console_handler)
     logger.addHandler(file_handler)
+    
+    # Force flush to ensure log level message appears
+    for handler in logger.handlers:
+        handler.flush()
+    
+    # Log the effective log level
+    logger.info(f"Logging initialized with level: {logging.getLevelName(logger.level)}")
     
     return logger
 

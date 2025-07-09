@@ -17,6 +17,7 @@ class KafkaConfig:
     group_id: str = "atd-ingestion-group"
     auto_offset_reset: str = "latest"
     enable_auto_commit: bool = True
+    poll_timeout_ms: int = 20000  # 20 seconds
 
 
 @dataclass
@@ -79,7 +80,8 @@ class Config:
                 bootstrap_servers=data['kafka'].get('bootstrap_servers', ['localhost:9092']),
                 group_id=data['kafka'].get('group_id', 'atd-ingestion-group'),
                 auto_offset_reset=data['kafka'].get('auto_offset_reset', 'latest'),
-                enable_auto_commit=data['kafka'].get('enable_auto_commit', True)
+                enable_auto_commit=data['kafka'].get('enable_auto_commit', True),
+                poll_timeout_ms=data['kafka'].get('poll_timeout_ms', 20000)
             ),
             clickhouse=ClickHouseConfig(
                 host=data['clickhouse'].get('host', 'localhost'),
@@ -118,7 +120,8 @@ class Config:
                 'bootstrap_servers': self.kafka.bootstrap_servers,
                 'group_id': self.kafka.group_id,
                 'auto_offset_reset': self.kafka.auto_offset_reset,
-                'enable_auto_commit': self.kafka.enable_auto_commit
+                'enable_auto_commit': self.kafka.enable_auto_commit,
+                'poll_timeout_ms': self.kafka.poll_timeout_ms
             },
             'clickhouse': {
                 'host': self.clickhouse.host,
