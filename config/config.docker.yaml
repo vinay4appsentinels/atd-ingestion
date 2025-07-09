@@ -2,12 +2,16 @@
 
 # Kafka Configuration
 kafka:
-  topic: atd-topic
+  topic: oat_bus
   bootstrap_servers:
     - kafka:29092  # Using internal Docker network
-  group_id: atd-ingestion-group
+  group_id: atd_ingestion
   auto_offset_reset: latest
   enable_auto_commit: true
+  # Consumer timeout for message processing (20 minutes = 1200000 ms)
+  max_poll_interval_ms: 1200000
+  # Session timeout (must be less than max_poll_interval_ms)
+  session_timeout_ms: 600000
 
 # ClickHouse Configuration
 clickhouse:

@@ -21,15 +21,29 @@ class KafkaMessageConsumer:
     
     def create_consumer(self) -> KafkaConsumer:
         """Create and configure Kafka consumer"""
+        consumer_config = {
+            'bootstrap_servers': self.config.kafka.bootstrap_servers,
+            'group_id': self.config.kafka.group_id,
+            'auto_offset_reset': self.config.kafka.auto_offset_reset,
+            'enable_auto_commit': self.config.kafka.enable_auto_commit,
+            'value_deserializer': lambda m: json.loads(m.decode('utf-8'))
+        }
+        
+        # Add optional timeout configurations if present
+        if hasattr(self.config.kafka, 'max_poll_interval_ms'):
+            consumer_config['max_poll_interval_ms'] = self.config.kafka.max_poll_interval_ms
+        if hasattr(self.config.kafka, 'session_timeout_ms'):
+            consumer_config['session_timeout_ms'] = self.config.kafka.session_timeout_ms
+            
         self.consumer = KafkaConsumer(
             self.config.kafka.topic,
-            bootstrap_servers=self.config.kafka.bootstrap_servers,
-            group_id=self.config.kafka.group_id,
-            auto_offset_reset=self.config.kafka.auto_offset_reset,
-            enable_auto_commit=self.config.kafka.enable_auto_commit,
-            value_deserializer=lambda m: json.loads(m.decode('utf-8'))
+            **consumer_config
         )
-        self.logger.info(f"Connected to Kafka topic: {self.config.kafka.topic}")
+        
+        self.logger.info(
+            f"Connected to Kafka topic: {self.config.kafka.topic} "
+            f"with consumer group: {self.config.kafka.group_id}"
+        )
         return self.consumer
     
     def close(self):

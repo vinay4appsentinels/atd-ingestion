@@ -54,15 +54,73 @@ class ATDIngestionService:
     
     def start(self):
         """Start the service"""
-        self.logger.info("Starting ATD Ingestion Service")
-        self.logger.info(f"Configuration: {self.config.to_dict()}")
+        # Print startup banner
+        self.logger.info("="*70)
+        self.logger.info("ATD INGESTION SERVICE STARTING")
+        self.logger.info("="*70)
+        
+        # Print detailed configuration
+        config_dict = self.config.to_dict()
+        self.logger.info("Configuration Details:")
+        self.logger.info("-"*50)
+        
+        # Kafka Configuration
+        self.logger.info("KAFKA CONFIGURATION:")
+        self.logger.info(f"  Topic: {config_dict['kafka']['topic']}")
+        self.logger.info(f"  Bootstrap Servers: {config_dict['kafka']['bootstrap_servers']}")
+        self.logger.info(f"  Consumer Group: {config_dict['kafka']['group_id']}")
+        self.logger.info(f"  Auto Offset Reset: {config_dict['kafka']['auto_offset_reset']}")
+        self.logger.info(f"  Auto Commit: {config_dict['kafka']['enable_auto_commit']}")
+        if 'max_poll_interval_ms' in config_dict['kafka']:
+            self.logger.info(f"  Max Poll Interval: {config_dict['kafka']['max_poll_interval_ms']}ms ({config_dict['kafka']['max_poll_interval_ms']/60000:.1f} minutes)")
+        if 'session_timeout_ms' in config_dict['kafka']:
+            self.logger.info(f"  Session Timeout: {config_dict['kafka']['session_timeout_ms']}ms ({config_dict['kafka']['session_timeout_ms']/60000:.1f} minutes)")
+        
+        # ClickHouse Configuration
+        self.logger.info("\nCLICKHOUSE CONFIGURATION:")
+        self.logger.info(f"  Host: {config_dict['clickhouse']['host']}")
+        self.logger.info(f"  Port: {config_dict['clickhouse']['port']}")
+        self.logger.info(f"  Database: {config_dict['clickhouse']['database']}")
+        
+        # AS-CLI Configuration
+        self.logger.info("\nAS-CLI CONFIGURATION:")
+        self.logger.info(f"  Executable: {config_dict['as_cli']['executable']}")
+        self.logger.info(f"  Timeout: {config_dict['as_cli']['timeout']}s")
+        
+        # Table Configuration
+        self.logger.info("\nTABLE CONFIGURATION:")
+        self.logger.info(f"  Auto Create Tables: {config_dict['table_config']['auto_create_tables']}")
+        self.logger.info(f"  Table Prefix: {config_dict['table_config']['table_prefix']}")
+        self.logger.info(f"  Default Table: {config_dict['table_config']['default_table']}")
+        self.logger.info(f"  Batch Size: {config_dict['table_config']['batch_size']}")
+        
+        # Service Configuration
+        self.logger.info("\nSERVICE CONFIGURATION:")
+        self.logger.info(f"  Thread Pool Size: {config_dict['thread_pool_size']}")
+        self.logger.info(f"  Log Level: {config_dict['log_level']}")
+        self.logger.info(f"  Log File: {config_dict['log_file']}")
+        self.logger.info(f"  Retry Enabled: {config_dict['service']['retry']['enabled']}")
+        if config_dict['service']['retry']['enabled']:
+            self.logger.info(f"  Max Retry Attempts: {config_dict['service']['retry']['max_attempts']}")
+            self.logger.info(f"  Retry Backoff: {config_dict['service']['retry']['backoff_seconds']}s")
+        
+        self.logger.info("-"*50)
         
         try:
             # Create Kafka consumer
+            self.logger.info("Creating Kafka consumer...")
             self.kafka_consumer.create_consumer()
             
             # Create thread pool and workers
+            self.logger.info("Starting worker threads...")
             self._start_workers()
+            
+            # Service is ready
+            self.logger.info("="*70)
+            self.logger.info("ATD INGESTION SERVICE STARTED SUCCESSFULLY")
+            self.logger.info(f"Listening on topic: {config_dict['kafka']['topic']}")
+            self.logger.info(f"Ready to process messages with {config_dict['thread_pool_size']} workers")
+            self.logger.info("="*70)
             
             # Main processing loop
             self._run_main_loop()
