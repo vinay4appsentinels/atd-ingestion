@@ -1,0 +1,48 @@
+# ATD Ingestion Service Configuration for Docker
+
+# Kafka Configuration
+kafka:
+  topic: atd-topic
+  bootstrap_servers:
+    - kafka:29092  # Using internal Docker network
+  group_id: atd-ingestion-group
+  auto_offset_reset: latest
+  enable_auto_commit: true
+
+# ClickHouse Configuration
+clickhouse:
+  host: host.docker.internal  # To connect to ClickHouse on host
+  port: 18123
+  database: default
+  # Optional: Add credentials if required
+  # user: default
+  # password: password
+
+# AS-CLI Configuration
+as_cli:
+  executable: as-cli  # Installed in Docker image
+  timeout: 300  # Timeout in seconds for each ingestion
+  # Optional: Additional arguments to pass to as-cli
+  additional_args: []
+
+# Thread Pool Configuration
+thread_pool_size: 4  # Number of concurrent threads for processing
+
+# Logging Configuration
+log_level: INFO
+log_file: /app/logs/atd-ingestion.log
+
+# Table Management
+auto_create_tables: true  # Pass --create-table flag to as-cli
+table_prefix: atd  # Prefix for tenant tables (e.g., atd_tenant1, atd_tenant2)
+default_table: atd_logs  # Default table name when no tenant is specified
+batch_size: 10000  # Number of records per batch for ingestion
+# schema_file: /path/to/schema.json  # Optional: Schema file for table creation
+
+# Service Configuration
+service:
+  # Retry configuration for failed ingestions
+  retry:
+    enabled: true
+    max_attempts: 3
+    backoff_seconds: 5

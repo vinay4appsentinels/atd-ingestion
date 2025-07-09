@@ -1,0 +1,28 @@
+[Unit]
+Description=ATD Ingestion Service
+Documentation=https://github.com/yourusername/atd-ingestion
+After=network.target docker.service
+Wants=docker.service
+
+[Service]
+Type=simple
+User=vinaypatil
+Group=vinaypatil
+WorkingDirectory=/home/vinaypatil/infosys/atd-ingestion
+Environment="PATH=/usr/local/bin:/usr/bin:/bin"
+ExecStart=/usr/bin/python3 /home/vinaypatil/infosys/atd-ingestion/atd_ingestion_service.py --config /home/vinaypatil/infosys/atd-ingestion/config/config.yaml
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=atd-ingestion
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/vinaypatil/infosys/atd-ingestion/logs
+
+[Install]
+WantedBy=multi-user.target

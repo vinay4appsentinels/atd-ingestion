@@ -1,0 +1,35 @@
+version: '3.8'
+
+# Production docker-compose without Kafka (connects to existing Kafka)
+services:
+  atd-ingestion:
+    build: .
+    image: atd-ingestion:latest
+    container_name: atd-ingestion-service
+    restart: unless-stopped
+    environment:
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./config:/app/config:ro
+      - ./logs:/app/logs
+      - ${DATA_PATH:-./data}:/data:ro  # Configure data path via env var
+    networks:
+      - host  # Use host network to connect to existing services
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os; exit(0 if os.path.exists('/proc/1/status') else 1)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  host:
+    external: true

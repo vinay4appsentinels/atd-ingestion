@@ -1,0 +1,180 @@
+"""
+Main service module for ATD Ingestion Service
+"""
+
+import logging
+import signal
+import sys
+import time
+import threading
+from concurrent.futures import ThreadPoolExecutor
+from queue import Queue
+from typing import Optional
+
+from .config import Config
+from .kafka_consumer import KafkaMessageConsumer
+from .worker import Worker
+from .logging_setup import setup_logging
+
+
+class ATDIngestionService:
+    """Main service class that orchestrates Kafka consumption and message processing"""
+    
+    def __init__(self, config_path: str):
+        # Load configuration
+        self.config = Config.from_yaml(config_path)
+        
+        # Setup logging
+        self.logger = setup_logging(self.config)
+        
+        # Initialize components
+        self.running = True
+        self.kafka_consumer = KafkaMessageConsumer(self.config, self.logger)
+        self.thread_pool: Optional[ThreadPoolExecutor] = None
+        self.processing_queue = Queue()
+        self.workers = []
+        self.stop_event = threading.Event()
+        
+        # Statistics
+        self.stats = {
+            'messages_received': 0,
+            'messages_processed': 0,
+            'messages_failed': 0,
+            'start_time': time.time()
+        }
+        
+        # Setup signal handlers
+        signal.signal(signal.SIGINT, self._signal_handler)
+        signal.signal(signal.SIGTERM, self._signal_handler)
+    
+    def _signal_handler(self, signum, frame):
+        """Handle shutdown signals gracefully"""
+        self.logger.info(f"Received signal {signum}. Shutting down...")
+        self.stop()
+    
+    def start(self):
+        """Start the service"""
+        self.logger.info("Starting ATD Ingestion Service")
+        self.logger.info(f"Configuration: {self.config.to_dict()}")
+        
+        try:
+            # Create Kafka consumer
+            self.kafka_consumer.create_consumer()
+            
+            # Create thread pool and workers
+            self._start_workers()
+            
+            # Main processing loop
+            self._run_main_loop()
+            
+        except Exception as e:
+            self.logger.error(f"Fatal error in service: {str(e)}", exc_info=True)
+            raise
+        finally:
+            self.shutdown()
+    
+    def _start_workers(self):
+        """Start worker threads"""
+        self.thread_pool = ThreadPoolExecutor(max_workers=self.config.thread_pool_size)
+        
+        for i in range(self.config.thread_pool_size):
+            worker = Worker(i, self.config, self.logger)
+            self.workers.append(worker)
+            self.thread_pool.submit(worker.run, self.processing_queue, self.stop_event)
+        
+        self.logger.info(f"Started {self.config.thread_pool_size} worker threads")
+    
+    def _run_main_loop(self):
+        """Main service loop that consumes from Kafka and queues messages"""
+        self.logger.info("Entering main processing loop")
+        
+        while self.running:
+            try:
+                # Poll for messages
+                messages = self.kafka_consumer.poll_messages(timeout_ms=1000)
+                
+                for topic_partition, records in messages.items():
+                    for record in records:
+                        self.stats['messages_received'] += 1
+                        self.logger.info(
+                            f"Received message: offset={record.offset}, "
+                            f"partition={record.partition}"
+                        )
+                        
+                        # Add to processing queue
+                        self.processing_queue.put(record)
+                
+                # Log statistics periodically
+                if self.stats['messages_received'] % 100 == 0 and self.stats['messages_received'] > 0:
+                    self._log_statistics()
+                
+            except Exception as e:
+                self.logger.error(f"Error in main loop: {str(e)}")
+                if self.running:
+                    time.sleep(5)  # Wait before retrying
+    
+    def stop(self):
+        """Stop the service"""
+        self.logger.info("Stopping ATD Ingestion Service")
+        self.running = False
+        self.stop_event.set()
+    
+    def shutdown(self):
+        """Cleanup resources"""
+        self.logger.info("Shutting down ATD Ingestion Service")
+        
+        # Stop workers
+        if self.thread_pool:
+            # Send poison pills to stop worker threads
+            for _ in range(self.config.thread_pool_size):
+                self.processing_queue.put(None)
+            
+            # Shutdown thread pool
+            self.thread_pool.shutdown(wait=True)
+            self.logger.info("Worker threads stopped")
+        
+        # Close Kafka consumer
+        self.kafka_consumer.close()
+        
+        # Log final statistics
+        self._log_statistics()
+        
+        self.logger.info("ATD Ingestion Service stopped")
+    
+    def _log_statistics(self):
+        """Log service statistics"""
+        uptime = time.time() - self.stats['start_time']
+        self.logger.info(
+            f"Statistics - Uptime: {uptime:.0f}s, "
+            f"Messages received: {self.stats['messages_received']}, "
+            f"Queue size: {self.processing_queue.qsize()}"
+        )
+
+
+def main():
+    """Main entry point"""
+    import argparse
+    
+    parser = argparse.ArgumentParser(description="ATD Ingestion Service")
+    parser.add_argument(
+        '--config',
+        type=str,
+        default='config/config.yaml',
+        help='Path to configuration file'
+    )
+    
+    args = parser.parse_args()
+    
+    try:
+        service = ATDIngestionService(args.config)
+        service.start()
+    except KeyboardInterrupt:
+        print("\nShutdown requested via keyboard interrupt")
+        sys.exit(0)
+    except Exception as e:
+        print(f"Service failed: {str(e)}")
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
