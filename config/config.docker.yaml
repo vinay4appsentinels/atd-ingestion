@@ -2,9 +2,9 @@
 
 # Kafka Configuration
 kafka:
-  topic: atd_test_topic  # Default topic for Docker testing
+  topic: test-atd-topic  # Default topic for Docker testing
   bootstrap_servers:
-    - localhost:9092  # Using host networking to access existing Kafka
+    - host.docker.internal:9092  # Using host networking to access existing Kafka
   group_id: atd_ingestion_test
   auto_offset_reset: earliest  # Read from beginning for testing
   enable_auto_commit: true
@@ -12,7 +12,7 @@ kafka:
 
 # ClickHouse Configuration
 clickhouse:
-  host: localhost  # Using host networking to access existing ClickHouse
+  host: host.docker.internal  # Using host networking to access existing ClickHouse
   port: 18123
   database: default
   # Optional: Add credentials if required
@@ -38,7 +38,7 @@ auto_create_tables: true  # Pass --create-table flag to as-cli
 table_prefix: atd  # Prefix for tenant tables (e.g., atd_tenant1, atd_tenant2)
 default_table: atd_logs  # Default table name when no tenant is specified
 batch_size: 10000  # Number of records per batch for ingestion
-# schema_file: /path/to/schema.json  # Optional: Schema file for table creation
+schema_file: /app/schema.json  # Schema file for table creation
 
 # Service Configuration
 service:
