@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   atd-ingestion:
     build: .
@@ -9,7 +7,7 @@ services:
     environment:
       - LOG_LEVEL=INFO
       - PYTHONUNBUFFERED=1
-      - KAFKA_TOPIC=${KAFKA_TOPIC:-atd_test_topic}  # Override topic via environment
+      - KAFKA_TOPIC=${KAFKA_TOPIC:-test-atd-topic}  # Override topic via environment
     volumes:
       - ./config:/app/config:ro
       - ./data:/data:ro  # Mount data directory for file access
