@@ -28,12 +28,13 @@ RUN pip install \
     pyarrow>=12.0.0 \
     python-dateutil
 
-# Install as-cli-ingest plugin from local submodule
-COPY ./as-cli-ingest /tmp/as-cli-ingest
-RUN pip install /tmp/as-cli-ingest && rm -rf /tmp/as-cli-ingest
+# Install as-cli-ingest plugin from local submodule in development mode
+COPY ./as-cli-ingest /app/as-cli-ingest
+RUN pip install -e /app/as-cli-ingest
 
-# Verify as-cli installation
+# Verify as-cli installation and plugin loading
 RUN as-cli --version
+RUN as-cli plugin list
 
 # Create non-root user
 RUN useradd -m -u 1000 atduser && \
@@ -46,6 +47,7 @@ COPY --chown=atduser:atduser main.py .
 COPY --chown=atduser:atduser src/ ./src/
 COPY --chown=atduser:atduser config/ ./config/
 COPY --chown=atduser:atduser test_producer.py .
+COPY --chown=atduser:atduser schema.json .
 
 # Install the atd-ingestion package in development mode
 RUN pip install -e .
