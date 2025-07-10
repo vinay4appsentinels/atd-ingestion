@@ -154,6 +154,19 @@ class MessageProcessor:
         if self.config.table_config.schema_file:
             cmd.extend(['--schema-file', self.config.table_config.schema_file])
         
+        # Add stateless database configuration options
+        if hasattr(self.config, 'clickhouse'):
+            if self.config.clickhouse.host:
+                cmd.extend(['--db-host', self.config.clickhouse.host])
+            if self.config.clickhouse.port:
+                cmd.extend(['--db-port', str(self.config.clickhouse.port)])
+            if self.config.clickhouse.database:
+                cmd.extend(['--db-database', self.config.clickhouse.database])
+            if hasattr(self.config.clickhouse, 'user') and self.config.clickhouse.user:
+                cmd.extend(['--db-user', self.config.clickhouse.user])
+            if hasattr(self.config.clickhouse, 'password') and self.config.clickhouse.password:
+                cmd.extend(['--db-password', self.config.clickhouse.password])
+        
         # Add any additional as-cli arguments from config
         if self.config.as_cli.additional_args:
             cmd.extend(self.config.as_cli.additional_args)

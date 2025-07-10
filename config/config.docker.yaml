@@ -13,11 +13,10 @@ kafka:
 # ClickHouse Configuration
 clickhouse:
   host: localhost  # Using host networking to access existing ClickHouse
-  port: 18123
+  port: 19000      # Native protocol port for direct clickhouse-client connections
   database: default
-  # Optional: Add credentials if required
-  # user: default
-  # password: password
+  user: default
+  password: clickhouse
 
 # AS-CLI Configuration
 as_cli:
