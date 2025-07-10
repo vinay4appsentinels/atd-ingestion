@@ -23,7 +23,7 @@ clickhouse:
 as_cli:
   executable: as-cli  # Installed in Docker image
   timeout: 300  # Timeout in seconds for each ingestion
-  # Optional: Additional arguments to pass to as-cli
+  # Additional arguments to pass to as-cli
   additional_args: []
 
 # Thread Pool Configuration

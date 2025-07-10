@@ -85,7 +85,9 @@ class MessageProcessor:
             
             if result.returncode == 0:
                 self.logger.info(f"Successfully ingested file: {file_path}")
-                self.logger.debug(f"Output: {result.stdout}")
+                self.logger.info(f"AS-CLI Output: {result.stdout}")
+                if result.stderr:
+                    self.logger.info(f"AS-CLI Stderr: {result.stderr}")
                 return ProcessResult(
                     success=True,
                     file_path=file_path,

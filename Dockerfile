@@ -1,11 +1,16 @@
 FROM python:3.11-slim
 
-# Install system dependencies
+# Install system dependencies including ClickHouse client
 RUN apt-get update && apt-get install -y \
     curl \
     wget \
     git \
     build-essential \
+    gnupg2 \
+    && apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 8919F6BD2B48D754 \
+    && echo "deb https://packages.clickhouse.com/deb stable main" > /etc/apt/sources.list.d/clickhouse.list \
+    && apt-get update \
+    && apt-get install -y clickhouse-client \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
