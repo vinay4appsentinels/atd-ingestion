@@ -2,9 +2,9 @@
 
 # Kafka Configuration
 kafka:
-  topic: test-atd-topic  # Default topic for Docker testing
+  topic: oat_bus  # Default topic for Docker testing
   bootstrap_servers:
-    - localhost:9092  # Using host networking to access existing Kafka
+    - kafka:9092  # Using host networking to access existing Kafka
   group_id: atd_ingestion_test
   auto_offset_reset: earliest  # Read from beginning for testing
   enable_auto_commit: true
@@ -12,8 +12,8 @@ kafka:
 
 # ClickHouse Configuration
 clickhouse:
-  host: localhost  # Using host networking to access existing ClickHouse
-  port: 19000      # Native protocol port for direct clickhouse-client connections
+  host: clickhouse  # Using host networking to access existing ClickHouse
+  port: 9000      # Native protocol port for direct clickhouse-client connections
   database: default
   user: default
   password: clickhouse

@@ -1,13 +1,13 @@
 services:
   atd-ingestion:
     build: .
-    image: atd-ingestion:latest
+    image: docker-hub.appsentinels.ai/atd-ingestion:latest
     container_name: atd-ingestion-service
     restart: unless-stopped
     environment:
       - LOG_LEVEL=INFO
       - PYTHONUNBUFFERED=1
-      - KAFKA_TOPIC=${KAFKA_TOPIC:-test-atd-topic}  # Override topic via environment
+      - KAFKA_TOPIC=${KAFKA_TOPIC:-oat_bus}  # Override topic via environment
     volumes:
       - ./config:/app/config:ro
       - /home/vinaypatil/infosys:/data:ro  # Mount infosys directory for file access

@@ -67,7 +67,7 @@ VOLUME ["/app/config", "/data"]
 # Default environment variables
 ENV PYTHONUNBUFFERED=1
 ENV LOG_LEVEL=INFO
-ENV KAFKA_TOPIC=atd_test_topic
+ENV KAFKA_TOPIC=oat_bus
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \

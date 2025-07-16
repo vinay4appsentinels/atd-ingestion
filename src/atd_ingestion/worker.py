@@ -5,8 +5,9 @@ Worker module for processing messages and executing as-cli commands
 import subprocess
 import logging
 import time
+import os
 from queue import Empty
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from dataclasses import dataclass
 
 from .config import Config
@@ -30,6 +31,7 @@ class MessageProcessor:
     def __init__(self, config: Config, logger: logging.Logger):
         self.config = config
         self.logger = logger
+        self.allowed_tenants = self._load_allowed_tenants()
     
     def process_message(self, message_data: Dict[str, Any]) -> ProcessResult:
         """Process a message containing file information"""
@@ -45,6 +47,16 @@ class MessageProcessor:
                     success=False,
                     file_path="unknown",
                     error="Message missing filename field",
+                    duration=time.time() - start_time
+                )
+            
+            # Validate tenant
+            if tenant and not self._is_tenant_allowed(tenant):
+                return ProcessResult(
+                    success=False,
+                    file_path=filename,
+                    tenant=tenant,
+                    error=f"Tenant '{tenant}' is not in the allowlist",
                     duration=time.time() - start_time
                 )
             
@@ -172,6 +184,31 @@ class MessageProcessor:
             cmd.extend(self.config.as_cli.additional_args)
         
         return cmd
+    
+    def _load_allowed_tenants(self) -> List[str]:
+        """Load allowed tenants from configuration or environment"""
+        # Check environment variable first
+        env_tenants = os.getenv('ALLOWED_TENANTS')
+        if env_tenants:
+            return [t.strip() for t in env_tenants.split(',')]
+        
+        # Check configuration
+        if hasattr(self.config, 'allowed_tenants'):
+            return self.config.allowed_tenants
+        
+        # Default allowed tenants
+        return ['netskope_boomskope_npa','mcdonalds_default']
+    
+    def _is_tenant_allowed(self, tenant: str) -> bool:
+        """Check if tenant is in the allowlist"""
+        if not tenant:
+            return True  # Allow messages without tenant
+        
+        # Normalize tenant name
+        tenant = tenant.lower().strip()
+        
+        # Check against allowlist
+        return tenant in self.allowed_tenants
 
 
 class Worker:

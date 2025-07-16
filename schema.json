@@ -75,5 +75,6 @@
     "error_flags": "String",
     "Proto": "String",
     "flow_skips": "Int64",
-    "state": "String"
+    "state": "String",
+    "_ip": "String"
 }
