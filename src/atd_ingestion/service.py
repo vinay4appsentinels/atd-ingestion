@@ -51,6 +51,54 @@ class ATDIngestionService:
         signal.signal(signal.SIGINT, self._signal_handler)
         signal.signal(signal.SIGTERM, self._signal_handler)
     
+    def _initialize_tenant_tables(self):
+        """Initialize tables for all allowed tenants on startup"""
+        from .worker import MessageProcessor
+        
+        self.logger.info("INITIALIZING TENANT TABLES")
+        self.logger.info("-" * 30)
+        
+        # Create a temporary MessageProcessor to access tenant management methods
+        processor = MessageProcessor(self.config, self.logger)
+        allowed_tenants = processor._load_allowed_tenants()
+        
+        if not allowed_tenants:
+            self.logger.info("No allowed tenants configured, skipping table initialization")
+            return
+        
+        self.logger.info(f"Found {len(allowed_tenants)} allowed tenants: {', '.join(allowed_tenants)}")
+        
+        # First, update the cache of existing tables
+        processor._update_tenant_table_cache()
+        
+        # Then create missing tables for allowed tenants
+        missing_tenants = set(allowed_tenants) - processor.tenants_with_tables
+        
+        if not missing_tenants:
+            self.logger.info("All allowed tenants already have tables")
+        else:
+            self.logger.info(f"Creating tables for {len(missing_tenants)} tenants: {', '.join(sorted(missing_tenants))}")
+            
+            success_count = 0
+            for tenant in missing_tenants:
+                self.logger.info(f"Creating table for tenant: {tenant}")
+                try:
+                    if processor._ensure_tenant_table_exists(tenant):
+                        success_count += 1
+                        self.logger.info(f"✓ Table created for tenant: {tenant}")
+                    else:
+                        self.logger.warning(f"✗ Failed to create table for tenant: {tenant}")
+                except Exception as e:
+                    self.logger.error(f"✗ Error creating table for tenant {tenant}: {str(e)}")
+            
+            self.logger.info(f"Table creation complete: {success_count}/{len(missing_tenants)} successful")
+        
+        self.logger.info(f"Total tenants with tables: {len(processor.tenants_with_tables)}")
+        self.logger.info("-" * 30)
+        
+        # Return the cache for sharing with workers
+        return processor.tenants_with_tables
+    
     def _signal_handler(self, signum, frame):
         """Handle shutdown signals gracefully"""
         self.logger.info(f"Received signal {signum}. Shutting down...")
@@ -114,6 +162,9 @@ class ATDIngestionService:
         
         self.logger.info("-"*50)
         
+        # Initialize tenant tables on startup and get shared cache
+        self.shared_tenant_cache = self._initialize_tenant_tables()
+        
         try:
             # Create Kafka consumer
             self.logger.info("Creating Kafka consumer...")
@@ -144,7 +195,7 @@ class ATDIngestionService:
         self.thread_pool = ThreadPoolExecutor(max_workers=self.config.thread_pool_size)
         
         for i in range(self.config.thread_pool_size):
-            worker = Worker(i, self.config, self.logger)
+            worker = Worker(i, self.config, self.logger, self.shared_tenant_cache)
             self.workers.append(worker)
             self.thread_pool.submit(worker.run, self.processing_queue, self.stop_event)
         

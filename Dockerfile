@@ -51,8 +51,7 @@ COPY --chown=atduser:atduser setup.py .
 COPY --chown=atduser:atduser main.py .
 COPY --chown=atduser:atduser src/ ./src/
 COPY --chown=atduser:atduser config/ ./config/
-COPY --chown=atduser:atduser test_producer.py .
-COPY --chown=atduser:atduser emit_all_files.py .
+COPY --chown=atduser:atduser script/ ./script/
 COPY --chown=atduser:atduser schema.json .
 
 # Install the atd-ingestion package in development mode

@@ -13,7 +13,7 @@ kafka:
 # ClickHouse Configuration
 clickhouse:
   host: clickhouse  # Using host networking to access existing ClickHouse
-  port: 9000      # Native protocol port for direct clickhouse-client connections
+  port: 19000      # Native protocol port for direct clickhouse-client connections
   database: default
   user: default
   password: clickhouse
