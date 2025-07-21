@@ -8,12 +8,12 @@ import sys
 import time
 import threading
 from concurrent.futures import ThreadPoolExecutor
-from queue import Queue
+from queue import Queue, Full
 from typing import Optional
 
 from .config import Config
 from .kafka_consumer import KafkaMessageConsumer
-from .worker import Worker
+from .worker import Worker, MessageProcessor
 from .logging_setup import setup_logging
 
 
@@ -35,9 +35,14 @@ class ATDIngestionService:
         self.running = True
         self.kafka_consumer = KafkaMessageConsumer(self.config, self.logger)
         self.thread_pool: Optional[ThreadPoolExecutor] = None
-        self.processing_queue = Queue()
+        # Set queue size limit to prevent memory buildup (2x thread pool size)
+        queue_size = self.config.thread_pool_size * 2
+        self.processing_queue = Queue(maxsize=queue_size)
         self.workers = []
         self.stop_event = threading.Event()
+        
+        # Pre-filtering: Load tenant validator early
+        self.tenant_validator = MessageProcessor(self.config, self.logger, 0)
         
         # Statistics
         self.stats = {
@@ -59,7 +64,7 @@ class ATDIngestionService:
         self.logger.info("-" * 30)
         
         # Create a temporary MessageProcessor to access tenant management methods
-        processor = MessageProcessor(self.config, self.logger)
+        processor = MessageProcessor(self.config, self.logger, 0)
         allowed_tenants = processor._load_allowed_tenants()
         
         if not allowed_tenants:
@@ -237,8 +242,23 @@ class ATDIngestionService:
                                 f"partition={record.partition}"
                             )
                             
-                            # Add to processing queue
-                            self.processing_queue.put(record)
+                            # PRE-FILTER: Check tenant before queueing
+                            if self._should_process_message(record):
+                                try:
+                                    # Add to processing queue with timeout to prevent blocking
+                                    self.processing_queue.put(record, timeout=1.0)
+                                except Full:
+                                    self.logger.warning(
+                                        f"Processing queue full, dropping message: "
+                                        f"offset={record.offset}, partition={record.partition}"
+                                    )
+                                    self.stats['messages_failed'] += 1
+                            else:
+                                self.logger.info(
+                                    f"Filtered out message for disabled tenant: "
+                                    f"offset={record.offset}, partition={record.partition}"
+                                )
+                                self.stats['messages_failed'] += 1
                     
                     # Reset poll log timer when messages are received
                     last_poll_log_time = time.time()
@@ -296,6 +316,27 @@ class ATDIngestionService:
         self._log_statistics()
         
         self.logger.info("ATD Ingestion Service stopped")
+    
+    def _should_process_message(self, record) -> bool:
+        """Pre-filter messages based on tenant allowlist before queueing"""
+        try:
+            # Extract tenant from message
+            message_data = record.value
+            if not isinstance(message_data, dict):
+                return True  # Let worker handle malformed messages
+            
+            tenant = message_data.get('tenant')
+            
+            # If no tenant specified, allow processing
+            if not tenant:
+                return True
+            
+            # Check if tenant is allowed
+            return self.tenant_validator._is_tenant_allowed(tenant)
+            
+        except Exception as e:
+            self.logger.warning(f"Error pre-filtering message: {str(e)}")
+            return True  # When in doubt, let worker handle it
     
     def _log_statistics(self):
         """Log service statistics"""

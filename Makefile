@@ -50,7 +50,7 @@ run:
 
 # Build Docker image
 docker-build:
-	docker build --no-cache -t docker-hub.appsentinels.ai/atd-ingestion:latest .
+	docker build --no-cache -t docker-hub.appsentinels.ai/atd-ingestion:table-create .
 
 # Run Docker container
 docker-run:

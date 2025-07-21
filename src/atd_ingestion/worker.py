@@ -28,9 +28,10 @@ class ProcessResult:
 class MessageProcessor:
     """Processes individual messages using as-cli"""
     
-    def __init__(self, config: Config, logger: logging.Logger):
+    def __init__(self, config: Config, logger: logging.Logger, worker_id: int = 0):
         self.config = config
         self.logger = logger
+        self.worker_id = worker_id
         self.allowed_tenants = self._load_allowed_tenants()
         self.tenants_with_tables = set()  # Cache of tenants that have tables
     
@@ -91,7 +92,7 @@ class MessageProcessor:
             # Build as-cli command
             cmd = self._build_command(file_path, tenant)
             
-            self.logger.info(f"Executing: {' '.join(cmd)}")
+            self.logger.info(f"W{self.worker_id}:<{tenant or 'no-tenant'}> Executing: {' '.join(cmd)}")
             
             # Execute as-cli subprocess
             result = subprocess.run(
@@ -102,10 +103,10 @@ class MessageProcessor:
             )
             
             if result.returncode == 0:
-                self.logger.info(f"Successfully ingested file: {file_path}")
-                self.logger.info(f"AS-CLI Output: {result.stdout}")
+                self.logger.info(f"W{self.worker_id}:<{tenant or 'no-tenant'}> Successfully ingested file: {file_path}")
+                self.logger.info(f"W{self.worker_id}:<{tenant or 'no-tenant'}> AS-CLI Output: {result.stdout}")
                 if result.stderr:
-                    self.logger.info(f"AS-CLI Stderr: {result.stderr}")
+                    self.logger.info(f"W{self.worker_id}:<{tenant or 'no-tenant'}> AS-CLI Stderr: {result.stderr}")
                 return ProcessResult(
                     success=True,
                     file_path=file_path,
@@ -114,8 +115,8 @@ class MessageProcessor:
                     stderr=result.stderr
                 )
             else:
-                self.logger.error(f"Failed to ingest file: {file_path}")
-                self.logger.error(f"Error: {result.stderr}")
+                self.logger.error(f"W{self.worker_id}:<{tenant or 'no-tenant'}> Failed to ingest file: {file_path}")
+                self.logger.error(f"W{self.worker_id}:<{tenant or 'no-tenant'}> Error: {result.stderr}")
                 return ProcessResult(
                     success=False,
                     file_path=file_path,
@@ -322,7 +323,7 @@ class Worker:
         self.worker_id = worker_id
         self.config = config
         self.logger = logger
-        self.processor = MessageProcessor(config, logger)
+        self.processor = MessageProcessor(config, logger, worker_id)
         # Share the tenant cache across all workers
         if shared_tenant_cache is not None:
             self.processor.tenants_with_tables = shared_tenant_cache
@@ -330,7 +331,7 @@ class Worker:
     
     def run(self, queue, stop_event):
         """Main worker loop"""
-        self.logger.info(f"Worker {self.worker_id} started")
+        self.logger.info(f"W{self.worker_id}: Worker started")
         
         while self.running and not stop_event.is_set():
             try:
@@ -340,7 +341,12 @@ class Worker:
                 if message is None:  # Poison pill to stop thread
                     break
                 
-                self.logger.info(f"Worker {self.worker_id} processing message: {message.value}")
+                # Extract tenant for logging
+                tenant_name = "no-tenant"
+                if isinstance(message.value, dict) and message.value.get('tenant'):
+                    tenant_name = message.value['tenant']
+                
+                self.logger.info(f"W{self.worker_id}:<{tenant_name}> Processing message: {message.value}")
                 
                 # Process with retry logic if enabled
                 if self.config.service.retry_enabled:
@@ -350,24 +356,24 @@ class Worker:
                 
                 if result.success:
                     self.logger.info(
-                        f"Worker {self.worker_id} successfully processed file: {result.file_path} "
+                        f"W{self.worker_id}:<{result.tenant or 'no-tenant'}> ✓ Successfully processed file: {result.file_path} "
                         f"in {result.duration:.2f}s"
                     )
                 else:
                     self.logger.error(
-                        f"Worker {self.worker_id} failed to process file: {result.file_path} "
+                        f"W{self.worker_id}:<{result.tenant or 'no-tenant'}> ✗ Failed to process file: {result.file_path} "
                         f"- Error: {result.error}"
                     )
                 
             except Empty:
                 # This is normal - no messages available
-                self.logger.info(f"Worker {self.worker_id}: Nothing to process, continuing to poll for jobs")
+                self.logger.info(f"W{self.worker_id}: IDLE - No messages available, continuing to poll for jobs")
                 continue
             except Exception as e:
                 if self.running:
-                    self.logger.error(f"Worker {self.worker_id} error: {str(e)}")
+                    self.logger.error(f"W{self.worker_id}: Worker error: {str(e)}")
         
-        self.logger.info(f"Worker {self.worker_id} stopped")
+        self.logger.info(f"W{self.worker_id}: Worker stopped")
     
     def stop(self):
         """Stop the worker"""

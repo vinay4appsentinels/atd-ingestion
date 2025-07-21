@@ -8,7 +8,7 @@ kafka:
   group_id: atd_ingestion_test
   auto_offset_reset: earliest  # Read from beginning for testing
   enable_auto_commit: true
-  poll_timeout_ms: 20000  # Poll timeout in milliseconds (20 seconds)
+  poll_timeout_ms: 1000   # Poll timeout in milliseconds (1 second) - reduced for faster message feeding
 
 # ClickHouse Configuration
 clickhouse:
