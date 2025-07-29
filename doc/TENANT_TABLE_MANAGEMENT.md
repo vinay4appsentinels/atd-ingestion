@@ -174,6 +174,43 @@ The created table will have:
 - **TTL**: 12 hours retention (configurable with `--ttl-hours`)
 - **Columns**: Based on schema.json (80 columns)
 
+### Schema File Structure
+
+The `schema.json` file defines the ClickHouse table structure with field mappings:
+
+```json
+{
+  "MsgHeader.MessageTime": "DateTime",
+  "MsgHeader.Sequence": "Int64", 
+  "MsgHeader.TenantId": "String",
+  "MsgHeader.InternalOPCID": "String",
+  "SrcInfo.Source": "Int64",
+  "SrcInfo.RemoteAddress": "Float64",
+  "Id": "String",
+  "DownstreamL3L4.SourceIP": "String",
+  "DownstreamL3L4.DestIP": "String",
+  "DownstreamL3L4.L4Protocol": "String",
+  "DownstreamL3L4.SourcePort": "Int64",
+  "UpstreamL3L4.SourceIP": "String",
+  "HTTPReq.Method": "String",
+  "HTTPReq.URL": "String",
+  "HTTPReq.Body": "String",
+  "HTTPResp.StatusCode": "Int64",
+  "_ip": "String"
+}
+```
+
+**Key Schema Details:**
+- **Total Columns**: 80 fields covering message headers, network data, HTTP traffic, and security information
+- **Field Naming**: Uses dot notation (e.g., `MsgHeader.MessageTime`) which gets converted to underscores in ClickHouse (`MsgHeader_MessageTime`)
+- **Data Types**: Standard ClickHouse types (DateTime, String, Int64, Float64)
+- **Required Fields**: `MsgHeader.MessageTime` and `Id` are used for table ordering
+- **Custom Schema**: You can provide your own schema file with `--schema-file` parameter
+
+**Schema File Location:**
+- **Container Default**: `/app/schema.json`
+- **Custom Schema**: Mount with `-v /path/to/custom-schema.json:/app/custom_schema.json`
+
 ## Troubleshooting
 
 ### Tenant Not Allowed
